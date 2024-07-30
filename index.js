@@ -47,7 +47,7 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.user);
+  console.log('New client connected:', socket.user.name);
 
   socket.on('disconnect', () => {
     console.log('Client disconnected');
