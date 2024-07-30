@@ -59,7 +59,8 @@ io.on('connection', (socket) => {
       user: {
         id: socket.user.uid,
         email: socket.user.email,
-        displayName: socket.user.name || socket.user.email
+        displayName: socket.user.name || socket.user.email,
+        image: socket.user.picture,
       }
     };
     console.log('Message received:', message);
