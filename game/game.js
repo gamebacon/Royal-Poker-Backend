@@ -5,8 +5,8 @@ let game = { players: [] };
 const addPlayerToGame = (user) => {
   game.players.push({
     id: user.uid,
-    displayName: user.displayName || user.email,
-    image: user.photoURL,
+    name: user.name || user.email,
+    image: user.picture,
   });
 };
 
@@ -42,7 +42,8 @@ const gameEvents = (io) => {
     };
     addMessage(joinMessage);
     io.to('mainGame').emit('chatUpdate', chat.messages);
-    io.to('mainGame').emit('userJoined', joinMessage);
+    io.to('mainGame').emit('userJoined', socket.user);
+    io.to('mainGame').emit('gameUpdate', game);
 
     socket.on('disconnect', () => {
       console.log('Client disconnected');
