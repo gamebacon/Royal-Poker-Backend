@@ -1,88 +1,68 @@
 // game.js
-let chat = { messages: [] };
-let game = { players: [] };
+const Chat = require('./chat');
 
-const addPlayerToGame = (user) => {
-  game.players.push({
-    id: user.uid,
-    name: user.name || user.email,
-    image: user.picture,
-  });
-};
-
-const removePlayerFromGame = (uid) => {
-  game.players = game.players.filter(player => player.id !== uid);
-};
-
-const startGame = () => {
-  // Implement your game start logic here
-};
-
-const handleMove = (move) => {
-  // Implement your game move logic here
-};
-
-const addMessage = (message) => {
-  chat.messages.push(message);
-};
-
-const gameEvents = (io) => {
-  io.on('connection', (socket) => {
-    console.log('New client connected:', socket.user.name);
-
-    // Add player to the game
-    addPlayerToGame(socket.user);
-    socket.join('mainGame');
-    io.to('mainGame').emit('gameUpdate', game);
-
-    // Create join message
-    const joinMessage = {
-      text: `${socket.user.name || socket.user.email} has joined the game.`,
-      user: null, // Indicate that this is a system message
+class Game {
+  constructor(io) {
+    this.io = io;
+    this.gameState = {
+      players: [],
     };
-    addMessage(joinMessage);
-    io.to('mainGame').emit('chatUpdate', chat.messages);
-    io.to('mainGame').emit('userJoined', socket.user);
-    io.to('mainGame').emit('gameUpdate', game);
+    this.chat = new Chat(io);
+    this.setupSocketListeners();
+  }
 
-    socket.on('disconnect', () => {
-      console.log('Client disconnected');
-      removePlayerFromGame(socket.user.uid);
-      io.to('mainGame').emit('gameUpdate', game);
-      
-      const leaveMessage = {
-        text: `${socket.user.name || socket.user.email} has left the game.`,
-        user: null, // Indicate that this is a system message
-      };
-      addMessage(leaveMessage);
-      io.to('mainGame').emit('chatUpdate', chat.messages);
+  setupSocketListeners() {
+    this.io.on('connection', (socket) => {
+      this.handleConnection(socket);
     });
+  }
+
+  addPlayer(user) {
+    const player = {
+      id: user.uid,
+      name: user.name || user.email,
+      image: user.picture,
+      money: 100_000,
+    };
+    this.gameState.players.push(player);
+    return player;
+  }
+
+  removePlayer(uid) {
+    this.gameState.players = this.gameState.players.filter(player => player.id !== uid);
+  }
+
+  gameUpdate() {
+    this.io.to('mainGame').emit('gameUpdate', this.gameState); 
+  }
+
+  onDisconnect(user) {
+      this.removePlayer(user.uid);
+      this.chat.addLeaveMessage(user)
+      this.gameUpdate();
+  }
+
+  handleConnection(socket) {
+    const user = socket.user;
+    this.addPlayer(user);
+    socket.join('mainGame');
+    this.chat.addJoinMessage(user);
+    this.gameUpdate();
+
+    socket.on('disconnect', () => this.onDisconnect(user));
 
     socket.on('startGame', () => {
-      startGame();
-      io.to('mainGame').emit('gameUpdate', game);
+      this.gameUpdate(); 
     });
 
     socket.on('makeMove', (move) => {
-      handleMove(move);
-      io.to('mainGame').emit('gameUpdate', game);
+      this.gameUpdate(); 
     });
 
     socket.on('sendMessage', (msg) => {
-      const message = {
-        text: msg,
-        user: {
-          id: socket.user.uid,
-          email: socket.user.email,
-          displayName: socket.user.name || socket.user.email,
-          image: socket.user.picture
-        },
-        timestamp: new Date().toLocaleTimeString()
-      };
-      addMessage(message);
-      io.to('mainGame').emit('chatUpdate', chat.messages);
+      this.chat.sendMessage(socket, msg);
     });
-  });
-};
+  }
+}
 
-module.exports = gameEvents;
+module.exports = Game;
