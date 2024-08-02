@@ -4,7 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const { verifyToken } = require('./middleware/auth');
-const Game = require('./game/game.js');
+const GameService = require('./game/GameService.js');
 
 const PORT = 5050;
 
@@ -21,8 +21,7 @@ const io = socketIo(server, {
 
 io.use(verifyToken);
 
-// Game event handling
-const game = new Game(io);
+const gameService = new GameService(io);
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

@@ -18,6 +18,11 @@ class Chat {
     console.log(message.text);
   }
 
+  send(message) {
+    this.addMessage(message)
+    this.updateChat();
+  }
+
   addJoinMessage(user) {
     const joinMessage = {
       text: `${user.name || user.email} has joined the game.`,
