@@ -7,7 +7,7 @@ class Player {
         this.image = user.picture;
         this.money = 100_000;
         this.currentBet = 0;
-        this.action = PlayerAction.NONE;
+        this.action = null;
     }
 }
 

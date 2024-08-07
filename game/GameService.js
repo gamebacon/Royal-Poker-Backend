@@ -76,19 +76,14 @@ class GameService {
   dealCards() {
     dealCards(this.game); // Call the utility function to deal cards
 
-    console.log(this.io.sockets.sockets);
-
     // Send hands to each player
     for (const playerHand of this.game.private.playerHands) {
-      console.log(playerHand);
       
       // Find the socket for this player by iterating over connected sockets
       const playerSocket = Array.from(this.io.sockets.sockets.values()).find(socket => socket.playerId === playerHand.playerId);
 
-      console.log(playerSocket);
       if (playerSocket) {
         playerSocket.emit('playerHand', { cards: playerHand.cards });
-        console.log('deal!');
       }
     }
   }

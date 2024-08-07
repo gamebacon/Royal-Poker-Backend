@@ -68,7 +68,7 @@ function handleUserAction(game, action) {
 
   switch (action) {
     case PlayerAction.CHECK:
-      if (game.public.currentBet > 0) {
+      if (currentPlayer.currentBet != game.public.currentBet) {
         throw new Error("Cannot check; there is a current bet to match.");
       }
       break;
@@ -206,6 +206,10 @@ function setupBlinds(game) {
   // Deduct the blind amounts
   smallBlindPlayer.money -= smallBlindAmount;
   bigBlindPlayer.money -= bigBlindAmount;
+
+  // Set current player bet
+  smallBlindPlayer.currentBet = smallBlindAmount;
+  bigBlindPlayer.currentBet = bigBlindAmount;
 
   // Update the game state with the new blind player IDs for the current round
   game.public.blinds.small.playerId = smallBlindPlayerId;

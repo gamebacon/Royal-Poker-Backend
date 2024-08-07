@@ -1,6 +1,5 @@
 
 const PlayerAction = {
-    NONE: 'NONE',
     CHECK: 'CHECK',
     CALL: 'CALL',
     BET: 'BET',
