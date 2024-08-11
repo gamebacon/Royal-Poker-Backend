@@ -1,8 +1,10 @@
 const { Deck } = require("./Deck");
+const { GameState } = require("./GameState");
 
 class Game {
     constructor() {
         this.public = {
+          state: GameState.INITIALIZING,
           pot: 0,
           blinds: {
             big: {
@@ -17,6 +19,7 @@ class Game {
           currentPlayerId: -1,
           players: [],
           isStarted: false,
+          communityCards: [],
         },
         this.private = {
           deck: new Deck(),

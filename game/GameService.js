@@ -2,7 +2,7 @@ const Chat = require('./Chat');
 const { Player } = require('./player');
 const { Game } = require('./util/Game');
 const { GameState } = require('./util/GameState');
-const { getNextGameState, setupBlinds, dealCards, handleUserAction } = require('./util/util');
+const { getNextGameState, setupBlinds, dealCards, handleUserAction, handleNextRound } = require('./util/util');
 
 class GameService {
   constructor(io) {
@@ -11,14 +11,13 @@ class GameService {
     this.chat = new Chat(io);
     this.startTimeout = null; // Store the timeout ID to clear it if needed
     this.countdownInterval = null; // Store the interval ID to clear it if needed
-    this.gameState = GameState.INITIALIZING;
     this.setupSocketListeners();
     this.resetGame();
   }
 
   resetGame() {
     console.log('game reset!');
-    this.gameState = GameState.WAITING_FOR_PLAYERS;
+    this.game.public.state = GameState.WAITING_FOR_PLAYERS;
     clearTimeout(this.startTimeout);
     clearInterval(this.countdownInterval);
     this.startTimeout = null;
@@ -39,8 +38,8 @@ class GameService {
     socket.playerId = user.uid;
 
     // Check if we have enough players to start the game
-    if (this.canStartGame() && this.gameState === GameState.WAITING_FOR_PLAYERS) {
-      this.gameState = getNextGameState(this.gameState);
+    if (this.canStartGame() && this.game.public.state === GameState.WAITING_FOR_PLAYERS) {
+      this.game.public.state = getNextGameState(this.game.public.state);
       const countdown = 5000;
       // If the game is not yet started, set a timeout to start the game
       this.startTimeout = setTimeout(() => this.startGame(), countdown);
@@ -74,6 +73,7 @@ class GameService {
   }
 
   dealCards() {
+    this.game.public.state = getNextGameState(this.game.public.state);
     dealCards(this.game); // Call the utility function to deal cards
 
     // Send hands to each player
@@ -86,6 +86,31 @@ class GameService {
         playerSocket.emit('playerHand', { cards: playerHand.cards });
       }
     }
+  }
+
+  handleNextRound() {
+    handleNextRound(this.game);
+    this.gameUpdate();
+  }
+
+  handlePlayerMove(user, move) {
+      //todo: return if game service is busy
+
+      if (user.uid !== this.game.public.currentPlayerId) {
+        return;
+      }
+
+      try {
+        // returns -1 if current round is over.
+        if (handleUserAction(this.game, move) == -1) {
+          this.handleNextRound()
+        }
+      } catch (error) {
+        console.log(error.message);
+        return;
+      }
+
+      this.gameUpdate(); 
   }
 
   onDisconnect(user) {
@@ -108,18 +133,7 @@ class GameService {
     });
 
     socket.on('makeMove', (move) => {
-      if (user.uid !== this.game.public.currentPlayerId) {
-        return;
-      }
-
-      try {
-        handleUserAction(this.game, move);
-      } catch (error) {
-        console.log(error.message);
-        return;
-      }
-
-      this.gameUpdate(); 
+      this.handlePlayerMove(user, move)
     });
 
     socket.on('sendMessage', (msg) => {
@@ -132,7 +146,7 @@ class GameService {
     if (this.canStartGame()) {
       console.log('start!');
       clearInterval(this.countdownInterval);
-      this.gameState = getNextGameState(this.gameState);
+      this.game.public.state = getNextGameState(this.game.public.state);
 
       this.game.public.isStarted = true;
       this.io.to('mainGame').emit('gameStart', { message: "Game is starting!" });

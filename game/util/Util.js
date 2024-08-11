@@ -54,6 +54,52 @@ function dealCards(game) {
   }
 }
 
+function resetActionsAndBets(game) {
+  game.public.currentBet = 0;
+
+  for (const player of game.public.players) {
+    player.currentBet = 0;
+    player.action = null;
+  }
+}
+
+
+function dealCommunityCards(game, amount) {
+  for(i = 0; i < amount; i++) {
+      const card = game.private.deck.cards.pop();
+      game.public.communityCards.push(card);
+  }
+}
+
+function handleNextRound(game) {
+  game.public.state = getNextGameState(game.public.state)
+
+  resetActionsAndBets(game);
+
+  /*
+  const smallBlindPlayerIndex = game.public.players.findIndex(
+    (player) => player.id === game.public.blinds.small.playerId
+  );
+  */
+  const nextPlayerIndex = getNextActivePlayerIndex(game);
+  game.public.currentPlayerId = game.public.players[nextPlayerIndex].id;
+
+  switch(game.public.state) {
+    case GameState.FLOP:
+      dealCommunityCards(game, 3);
+      return;
+    case GameState.TURN:
+      dealCommunityCards(game, 1);
+      return;
+    case GameState.RIVER:
+      dealCommunityCards(game, 1);
+      return;
+    case GameState.SHOWDOWN:
+      return;
+  }
+
+}
+
 function handleUserAction(game, action) {
   const currentPlayer = game.public.players.find(
     (player) => player.id === game.public.currentPlayerId
@@ -77,6 +123,8 @@ function handleUserAction(game, action) {
       const callAmount = game.public.currentBet - currentPlayer.currentBet;
       if (currentPlayer.money < callAmount) {
         throw new Error("Not enough money to call.");
+      } else if (callAmount == 0) {
+        throw new Error("Player already matching bet.");
       }
       currentPlayer.money -= callAmount;
       currentPlayer.currentBet += callAmount;
@@ -86,9 +134,10 @@ function handleUserAction(game, action) {
     case PlayerAction.BET:
       if (amount <= 0) {
         throw new Error("Bet amount must be greater than zero.");
-      }
-      if (amount > currentPlayer.money) {
+      } else if (amount > currentPlayer.money) {
         throw new Error("Not enough money to bet.");
+      } else if (currentPlayer.currentBet > 0) {
+        throw new Error(`Player already placed bet: $${currentPlayer.currentBet}`);
       }
       currentPlayer.money -= amount;
       currentPlayer.currentBet += amount;
@@ -119,41 +168,46 @@ function handleUserAction(game, action) {
   }
 
   // action valid past this point
-
   currentPlayer.action = action;
-
-  // Move to the next player's turn
   const nextPlayerIndex = getNextActivePlayerIndex(game);
-  game.public.currentPlayerId = game.public.players[nextPlayerIndex].id;
 
-  return {
-    action: action,
-    playerId: currentPlayer.id,
-    remainingMoney: currentPlayer.money,
-    pot: game.public.pot,
-    currentBet: game.public.currentBet,
-  };
+  if (nextPlayerIndex == -1) {
+    return -1;
+  }
+
+  game.public.currentPlayerId = game.public.players[nextPlayerIndex].id;
 }
 
+
+function isPlayerUpdated(game, player) {
+  return player.action != null && (game.public.currentBet != 0 && player.currentBet == game.public.currentBet);
+}
 
 // Utility function to find the next active player who hasn't folded
 function getNextActivePlayerIndex(game) {
   const { players } = game.public;
-  let currentIndex = players.findIndex(
+  const currentIndex = players.findIndex(
     (player) => player.id === game.public.currentPlayerId
   );
 
   let nextIndex = (currentIndex + 1) % players.length;
 
-  while (players[nextIndex].isFolded) {
-    nextIndex = (nextIndex + 1) % players.length;
-    if (nextIndex === currentIndex) {
-      break; // All players except one have folded
-    }
-  }
-  return nextIndex;
-}
+  while (nextIndex !== currentIndex) {
+    const player = players[nextIndex];
 
+    // Check if the player is active (not folded and has actions left to take)
+    if (!player.isFolded && !isPlayerUpdated(game, player)) {
+      return nextIndex; // Return the index of the next active player
+    } else {
+      console.log('player folded or not betted')
+    }
+
+    nextIndex = (nextIndex + 1) % players.length;
+  }
+
+  // If we have looped through all players and none are active, return -1
+  return -1;
+}
 // Function to setup blinds and determine the player's turn
 function setupBlinds(game) {
   const { players } = game.public;
@@ -235,4 +289,5 @@ module.exports = {
   setupBlinds,
   dealCards,
   handleUserAction,
+  handleNextRound,
 };
