@@ -17,6 +17,7 @@ class Game {
             },
           },
           currentPlayerId: -1,
+          availableActions: [],
           players: [],
           isStarted: false,
           communityCards: [],

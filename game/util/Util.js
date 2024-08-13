@@ -59,7 +59,9 @@ function resetActionsAndBets(game) {
 
   for (const player of game.public.players) {
     player.currentBet = 0;
-    player.action = null;
+    if (player.action != PlayerAction.FOLD) {
+      player.action = null;
+    }
   }
 }
 
@@ -76,13 +78,9 @@ function handleNextRound(game) {
 
   resetActionsAndBets(game);
 
-  /*
-  const smallBlindPlayerIndex = game.public.players.findIndex(
-    (player) => player.id === game.public.blinds.small.playerId
-  );
-  */
   const nextPlayerIndex = getNextActivePlayerIndex(game);
-  game.public.currentPlayerId = game.public.players[nextPlayerIndex].id;
+  const nextPlayer = game.public.players[nextPlayerIndex];
+  setupNextPlayer(game, nextPlayer);
 
   switch(game.public.state) {
     case GameState.FLOP:
@@ -98,6 +96,45 @@ function handleNextRound(game) {
       return;
   }
 
+}
+
+function getMinBet(game) {
+  return game.public.blinds.big.amount;
+}
+
+function getMinRaise(game) {
+  if (game.public.currentBet > 0) {
+    return game.public.currentBet * 2;
+  }
+  return game.public.blinds.big.amount * 2;
+}
+
+function setupNextPlayer(game, player) {
+
+  console.log(player)
+  if (player == undefined) {
+    throw new Error('null player')   }
+
+  availableActions = [];
+
+  if (game.public.currentBet == 0 && player.money >= getMinBet(game)) {
+    availableActions.push(PlayerAction.BET);
+  }
+  if (player.money >= game.public.currentBet && game.public.currentBet != 0) {
+    availableActions.push(PlayerAction.CALL);
+  }
+  if (player.money >= getMinRaise(game) && game.public.currentBet > 0) {
+    availableActions.push(PlayerAction.RAISE)
+  } 
+  if (player.currentBet == game.public.currentBet) {
+    availableActions.push(PlayerAction.CHECK);
+  }
+
+  availableActions.push(PlayerAction.FOLD);
+
+  game.public.currentPlayerId = player.id;
+  game.public.availableActions = availableActions;
+  console.log(`Current turn: ${player.name}`);
 }
 
 function handleUserAction(game, action) {
@@ -160,7 +197,7 @@ function handleUserAction(game, action) {
       break;
 
     case PlayerAction.FOLD:
-      currentPlayer.isFolded = true;
+      currentPlayer.action = PlayerAction.FOLD;
       break;
 
     default:
@@ -175,12 +212,18 @@ function handleUserAction(game, action) {
     return -1;
   }
 
-  game.public.currentPlayerId = game.public.players[nextPlayerIndex].id;
+  const nextPlayer = game.public.players[nextPlayerIndex]
+  setupNextPlayer(game, nextPlayer);
 }
 
 
-function isPlayerUpdated(game, player) {
-  return player.action != null && (game.public.currentBet != 0 && player.currentBet == game.public.currentBet);
+function isPlayerReadyForNextRound(game, player) {
+
+  if (player.action == null) {
+    return false;
+  }
+
+  return player.currentBet == game.public.currentBet;
 }
 
 // Utility function to find the next active player who hasn't folded
@@ -194,9 +237,10 @@ function getNextActivePlayerIndex(game) {
 
   while (nextIndex !== currentIndex) {
     const player = players[nextIndex];
+    console.log(player);
 
     // Check if the player is active (not folded and has actions left to take)
-    if (!player.isFolded && !isPlayerUpdated(game, player)) {
+    if (player.action != PlayerAction.FOLD && !isPlayerReadyForNextRound(game, player)) {
       return nextIndex; // Return the index of the next active player
     } else {
       console.log('player folded or not betted')
@@ -208,7 +252,6 @@ function getNextActivePlayerIndex(game) {
   // If we have looped through all players and none are active, return -1
   return -1;
 }
-// Function to setup blinds and determine the player's turn
 function setupBlinds(game) {
   const { players } = game.public;
 
@@ -279,9 +322,9 @@ function setupBlinds(game) {
 
   // Determine the next player's turn (first player to act after blinds)
   const nextPlayerIndex = (bigBlindIndex + 1) % players.length;
-  game.public.currentPlayerId = players[nextPlayerIndex].id;
-
-  console.log(`Current turn: ${players[nextPlayerIndex].name}`);
+  const nextPlayer = players[nextPlayerIndex];
+  console.log(game);
+  setupNextPlayer(game, nextPlayer);
 }
 
 module.exports = {

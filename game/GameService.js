@@ -34,28 +34,23 @@ class GameService {
   addPlayer(user, socket) {
     const player = new Player(user);
     this.game.public.players.push(player);
-    // Store the player ID directly on the socket
     socket.playerId = user.uid;
 
-    // Check if we have enough players to start the game
     if (this.canStartGame() && this.game.public.state === GameState.WAITING_FOR_PLAYERS) {
       this.game.public.state = getNextGameState(this.game.public.state);
-      const countdown = 5000;
-      // If the game is not yet started, set a timeout to start the game
+      const countdown = 5_000;
       this.startTimeout = setTimeout(() => this.startGame(), countdown);
-      let count = countdown / 1000;
+      let count = countdown / 1_000;
       this.countdownInterval = setInterval(() => {
-        this.chat.send({
-          text: `Game starting in ${count--}`
+        this.chat.send({text: `Game starting in ${--count}`
         });
-      }, 1000);
+      }, 1_000);
     }
 
     return player;
   }
 
   canStartGame() {
-    // Correct condition to check the number of players
     return this.game.public.players.length >= 2 && !this.game.public.isStarted;
   }
 
@@ -100,11 +95,12 @@ class GameService {
         return;
       }
 
+      if (handleUserAction(this.game, move) == -1) {
+        this.handleNextRound()
+      } else {
+        console.log('more players to act!');
+      }
       try {
-        // returns -1 if current round is over.
-        if (handleUserAction(this.game, move) == -1) {
-          this.handleNextRound()
-        }
       } catch (error) {
         console.log(error.message);
         return;
@@ -142,16 +138,13 @@ class GameService {
   }
 
   startGame() {
-    // Ensure we only start the game if there are enough players and it hasn't started yet
     if (this.canStartGame()) {
-      console.log('start!');
       clearInterval(this.countdownInterval);
-      this.game.public.state = getNextGameState(this.game.public.state);
-
-      this.game.public.isStarted = true;
-      this.io.to('mainGame').emit('gameStart', { message: "Game is starting!" });
       setupBlinds(this.game);
       this.dealCards();
+      this.game.public.state = getNextGameState(this.game.public.state);
+      this.game.public.isStarted = true;
+      this.io.to('mainGame').emit('gameStart', { message: "Game is starting!" });
       this.gameUpdate();
     }
   }
